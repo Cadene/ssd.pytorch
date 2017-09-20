@@ -55,6 +55,7 @@ class MultiBoxLoss(nn.Module):
                 shape: [batch_size,num_objs,5] (last idx is the label).
         """
         loc_data, conf_data, priors = predictions
+        #import ipdb; ipdb.set_trace()
         num = loc_data.size(0)
         priors = priors[:loc_data.size(1), :]
         num_priors = (priors.size(0))
@@ -77,6 +78,7 @@ class MultiBoxLoss(nn.Module):
 
         pos = conf_t > 0
         num_pos = pos.sum()
+        #import ipdb; ipdb.set_trace()
 
         # Localization Loss (Smooth L1)
         # Shape: [batch,num_priors,4]
@@ -86,6 +88,7 @@ class MultiBoxLoss(nn.Module):
         loss_l = F.smooth_l1_loss(loc_p, loc_t, size_average=False)
 
         # Compute max conf across batch for hard negative mining
+        #import ipdb; ipdb.set_trace()
         batch_conf = conf_data.view(-1,self.num_classes)
         loss_c = log_sum_exp(batch_conf) - batch_conf.gather(1, conf_t.view(-1,1))
 
@@ -95,6 +98,7 @@ class MultiBoxLoss(nn.Module):
         _,loss_idx = loss_c.sort(1, descending=True)
         _,idx_rank = loss_idx.sort(1)
         num_pos = pos.long().sum(1)
+        #import ipdb; ipdb.set_trace()
         num_neg = torch.clamp(self.negpos_ratio*num_pos, max=pos.size(1)-1)
         neg = idx_rank < num_neg.expand_as(idx_rank)
 
@@ -106,6 +110,8 @@ class MultiBoxLoss(nn.Module):
         loss_c = F.cross_entropy(conf_p, targets_weighted, size_average=False)
 
         # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
+
+        #import ipdb; ipdb.set_trace()
 
         N = num_pos.data.sum()
         loss_l/=N

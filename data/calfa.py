@@ -1,9 +1,4 @@
-"""VOC Dataset Classes
-
-Original author: Francisco Massa
-https://github.com/fmassa/vision/blob/voc_dataset/torchvision/datasets/voc.py
-
-Updated by: Ellis Brown, Max deGroot
+"""CALFA Dataset
 """
 
 import os
@@ -45,10 +40,8 @@ class AnnotationTransform(object):
         width (int): width
     """
 
-    def __init__(self, class_to_ind=None, keep_difficult=False):
-        self.class_to_ind = class_to_ind or dict(
-            zip(VOC_CLASSES, range(len(VOC_CLASSES))))
-        self.keep_difficult = keep_difficult
+    def __init__(self):
+        pass
 
     def __call__(self, target, width, height):
         """
@@ -81,7 +74,7 @@ class AnnotationTransform(object):
         return res  # [[xmin, ymin, xmax, ymax, label_ind], ... ]
 
 
-class VOCDetection(data.Dataset):
+class CalfaDetection(data.Dataset):
     """VOC Detection Dataset Object
 
     input is image, target is annotation
@@ -98,35 +91,24 @@ class VOCDetection(data.Dataset):
             (default: 'VOC2007')
     """
 
-    def __init__(self, root, image_sets, transform=None, target_transform=None,
-                 dataset_name='VOC0712'):
-        self.root = root
+    def __init__(self, library, image_sets, transform=None, target_transform=None,
+                 dataset_name='Calfa'):
+        self.library = library
         self.image_set = image_sets
         self.transform = transform
         self.target_transform = target_transform
         self.name = dataset_name
-        self._annopath = os.path.join('%s', 'Annotations', '%s.xml')
-        self._imgpath = os.path.join('%s', 'JPEGImages', '%s.jpg')
-        self.ids = list()
-        for (year, name) in image_sets:
-            rootpath = os.path.join(self.root, 'VOC' + year)
-            for line in open(os.path.join(rootpath, 'ImageSets', 'Main', name + '.txt')):
-                self.ids.append((rootpath, line.strip()))
+        self.list_lines = [line for line_id, line in self.library.get_lines().items]
 
     def __getitem__(self, index):
-        im, gt, h, w = self.pull_item(index)
-        import ipdb; ipdb.set_trace()
-        return im, gt
+        image, target = self.pull_item(index)
+        return image, target
 
     def __len__(self):
-        return len(self.ids)
+        return len(self.list_lines)
 
     def pull_item(self, index):
-        img_id = self.ids[index]
-
-        target = ET.parse(self._annopath % img_id).getroot()
-        img = cv2.imread(self._imgpath % img_id)
-        height, width, channels = img.shape
+        image = self.pull_image(index)
 
         if self.target_transform is not None:
             target = self.target_transform(target, width, height)
@@ -138,8 +120,11 @@ class VOCDetection(data.Dataset):
             img = img[:, :, (2, 1, 0)]
             # img = img.transpose(2, 0, 1)
             target = np.hstack((boxes, np.expand_dims(labels, axis=1)))
-        return torch.from_numpy(img).permute(2, 0, 1), target, height, width
+
+        return image, target
+        #return torch.from_numpy(img).permute(2, 0, 1), target, height, width
         # return torch.from_numpy(img), target, height, width
+
 
     def pull_image(self, index):
         '''Returns the original image object at index in PIL form
@@ -152,8 +137,10 @@ class VOCDetection(data.Dataset):
         Return:
             PIL img
         '''
-        img_id = self.ids[index]
-        return cv2.imread(self._imgpath % img_id, cv2.IMREAD_COLOR)
+        image = self.list_lines[index].get_image()
+        if self.transform is not None:
+            image = self.transform(image)
+        return image
 
     def pull_anno(self, index):
         '''Returns the original annotation of image at index
@@ -167,23 +154,36 @@ class VOCDetection(data.Dataset):
             list:  [img_id, [(label, bbox coords),...]]
                 eg: ('001718', [('dog', (96, 13, 438, 332))])
         '''
-        img_id = self.ids[index]
-        anno = ET.parse(self._annopath % img_id).getroot()
-        gt = self.target_transform(anno, 1, 1)
-        return img_id[1], gt
+        line = self.list_lines[index]
+        line_coord = line.get_coord()
 
-    def pull_tensor(self, index):
-        '''Returns the original image at an index in tensor form
+        anno = []
+        for char_id, char in line.get_chars().items():
+            coord = {}
+            coord['x1'] = char.get_coord('x1') - line_coord['x']
+            coord['y1'] = char.get_coord('y1') - line_coord['y']
+            coord['x2'] = coord['x1'] + char.get_coord('weight')
+            coord['y2'] = coord['y1'] + char.get_coord('height'),
+            anno.append((char.get_class_id(), (coord['x1'], coord['y1'],
+                                               coord['x2'], coord['y2'])))
 
-        Note: not using self.__getitem__(), as any transformations passed in
-        could mess up this functionality.
+        if self.target_transform is not None:
+            anno = self.target_transform(anno)
 
-        Argument:
-            index (int): index of img to show
-        Return:
-            tensorized version of img, squeezed
-        '''
-        return torch.Tensor(self.pull_image(index)).unsqueeze_(0)
+        return line.line_id, anno
+
+    # def pull_tensor(self, index):
+    #     '''Returns the original image at an index in tensor form
+
+    #     Note: not using self.__getitem__(), as any transformations passed in
+    #     could mess up this functionality.
+
+    #     Argument:
+    #         index (int): index of img to show
+    #     Return:
+    #         tensorized version of img, squeezed
+    #     '''
+    #     return torch.Tensor(self.pull_image(index)).unsqueeze_(0)
 
 
 def detection_collate(batch):

@@ -37,6 +37,8 @@ class Detect(Function):
         """
         num = loc_data.size(0)  # batch size
         num_priors = prior_data.size(0)
+        # if loc_data.is_cuda:
+        #     self.output = self.output.cuda()
         self.output.zero_()
         if num == 1:
             # size batch x num_classes x num_priors
@@ -61,6 +63,14 @@ class Detect(Function):
                 boxes = decoded_boxes[l_mask].view(-1, 4)
                 # idx of highest scoring and non-overlapping boxes per class
                 ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
+                if boxes.is_cuda:
+                    ids = ids.cuda()
+                # print('---------')
+                # print(ids.is_cuda)
+                # #print(count.is_cuda)
+                # print(scores.is_cuda)
+                # print(boxes.is_cuda)
+
                 self.output[i, cl, :count] = \
                     torch.cat((scores[ids[:count]].unsqueeze(1),
                                boxes[ids[:count]]), 1)

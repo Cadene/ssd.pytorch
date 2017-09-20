@@ -50,8 +50,8 @@ cfg = (v1, v2)[args.version == 'v2']
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
 
-train_sets = [('2007', 'trainval'), ('2012', 'trainval')]
-# train_sets = 'train'
+#train_sets = [('2007', 'trainval'), ('2012', 'trainval')]
+train_sets = 'train'
 ssd_dim = 300  # only support 300 now
 means = (104, 117, 123)  # only support voc now
 num_classes = len(VOC_CLASSES) + 1
@@ -103,8 +103,9 @@ if not args.resume:
     ssd_net.loc.apply(weights_init)
     ssd_net.conf.apply(weights_init)
 
-optimizer = optim.SGD(net.parameters(), lr=args.lr,
-                      momentum=args.momentum, weight_decay=args.weight_decay)
+# optimizer = optim.SGD(net.parameters(), lr=args.lr,
+#                       momentum=args.momentum, weight_decay=args.weight_decay)
+optimizer = optim.Adam(net.parameters(), lr=args.lr)
 criterion = MultiBoxLoss(num_classes, 0.5, True, 0, True, 3, 0.5, False, args.cuda)
 
 
@@ -213,8 +214,8 @@ def train():
                 )
         if iteration % 5000 == 0:
             print('Saving state, iter:', iteration)
-            torch.save(ssd_net.state_dict(), 'weights/ssd300_0712_iter_' +
-                       repr(iteration) + '.pth')
+            torch.save(ssd_net.state_dict(), os.path.join(args.save_folder, 'ssd300_0712_iter_' +
+                       repr(iteration) + '.pth'))
     torch.save(ssd_net.state_dict(), args.save_folder + '' + args.version + '.pth')
 
 

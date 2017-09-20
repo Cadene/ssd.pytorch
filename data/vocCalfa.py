@@ -20,12 +20,19 @@ if sys.version_info[0] == 2:
 else:
     import xml.etree.ElementTree as ET
 
-VOC_CLASSES = (  # always index 0
-    'aeroplane', 'bicycle', 'bird', 'boat',
-    'bottle', 'bus', 'car', 'cat', 'chair',
-    'cow', 'diningtable', 'dog', 'horse',
-    'motorbike', 'person', 'pottedplant',
-    'sheep', 'sofa', 'train', 'tvmonitor')
+sys.path.insert(0, '/home/cadene/Documents/calfa_new')
+import calfa.datasets as datasets
+
+# VOC_CLASSES = (  # always index 0
+#     'aeroplane', 'bicycle', 'bird', 'boat',
+#     'bottle', 'bus', 'car', 'cat', 'chair',
+#     'cow', 'diningtable', 'dog', 'horse',
+#     'motorbike', 'person', 'pottedplant',
+#     'sheep', 'sofa', 'train', 'tvmonitor')
+
+dir_calfa = '/local2/cadene/data/calfa/raw/v1'
+library = datasets.factory_library(dir_calfa, 'all')
+VOC_CLASSES = library.get_classes() 
 
 # for making bounding boxes pretty
 COLORS = ((255, 0, 0, 128), (0, 255, 0, 128), (0, 0, 255, 128),
@@ -64,7 +71,9 @@ class AnnotationTransform(object):
             if not self.keep_difficult and difficult:
                 continue
             name = obj.find('name').text.lower().strip()
-            bbox = obj.find('bndbox')
+            bbox = obj.find('bnbox')
+
+            #import ipdb; ipdb.set_trace();
 
             pts = ['xmin', 'ymin', 'xmax', 'ymax']
             bndbox = []
@@ -78,6 +87,7 @@ class AnnotationTransform(object):
             res += [bndbox]  # [xmin, ymin, xmax, ymax, label_ind]
             # img_id = target.find('filename').text[:-4]
 
+        #import ipdb; ipdb.set_trace();
         return res  # [[xmin, ymin, xmax, ymax, label_ind], ... ]
 
 
@@ -99,7 +109,7 @@ class VOCDetection(data.Dataset):
     """
 
     def __init__(self, root, image_sets, transform=None, target_transform=None,
-                 dataset_name='VOC0712'):
+                 dataset_name='CalfaV1'):
         self.root = root
         self.image_set = image_sets
         self.transform = transform
@@ -108,14 +118,13 @@ class VOCDetection(data.Dataset):
         self._annopath = os.path.join('%s', 'Annotations', '%s.xml')
         self._imgpath = os.path.join('%s', 'JPEGImages', '%s.jpg')
         self.ids = list()
-        for (year, name) in image_sets:
-            rootpath = os.path.join(self.root, 'VOC' + year)
-            for line in open(os.path.join(rootpath, 'ImageSets', 'Main', name + '.txt')):
-                self.ids.append((rootpath, line.strip()))
+        rootpath = os.path.join(self.root, self.name)
+        for line in open(os.path.join(rootpath, 'ImageSets', 'Main', self.image_set + '.txt')):
+            self.ids.append((rootpath, line.strip()))
 
     def __getitem__(self, index):
         im, gt, h, w = self.pull_item(index)
-        import ipdb; ipdb.set_trace()
+        #import ipdb; ipdb.set_trace();
         return im, gt
 
     def __len__(self):
@@ -125,7 +134,8 @@ class VOCDetection(data.Dataset):
         img_id = self.ids[index]
 
         target = ET.parse(self._annopath % img_id).getroot()
-        img = cv2.imread(self._imgpath % img_id)
+        
+        img = self.pull_image(index)
         height, width, channels = img.shape
 
         if self.target_transform is not None:
@@ -153,7 +163,13 @@ class VOCDetection(data.Dataset):
             PIL img
         '''
         img_id = self.ids[index]
-        return cv2.imread(self._imgpath % img_id, cv2.IMREAD_COLOR)
+        img = cv2.imread(self._imgpath % img_id)
+        height, width, channels = img.shape
+        max_shape = max([height, width])
+        rescaled_img = np.zeros((max_shape,max_shape,3))#.astype(np.uint8)
+        rescaled_img[:height,:width,:] = img
+        img = rescaled_img
+        return img
 
     def pull_anno(self, index):
         '''Returns the original annotation of image at index

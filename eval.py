@@ -56,13 +56,20 @@ if args.cuda and torch.cuda.is_available():
 else:
     torch.set_default_tensor_type('torch.FloatTensor')
 
-annopath = os.path.join(args.voc_root, 'VOC2007', 'Annotations', '%s.xml')
-imgpath = os.path.join(args.voc_root, 'VOC2007', 'JPEGImages', '%s.jpg')
-imgsetpath = os.path.join(args.voc_root, 'VOC2007', 'ImageSets', 'Main', '{:s}.txt')
-YEAR = '2007'
-devkit_path = VOCroot + 'VOC' + YEAR
+# annopath = os.path.join(args.voc_root, 'VOC2007', 'Annotations', '%s.xml')
+# imgpath = os.path.join(args.voc_root, 'VOC2007', 'JPEGImages', '%s.jpg')
+# imgsetpath = os.path.join(args.voc_root, 'VOC2007', 'ImageSets', 'Main', '{:s}.txt')
+# YEAR = '2007'
+# devkit_path = VOCroot + 'VOC' + YEAR
+# dataset_mean = (104, 117, 123)
+# set_type = 'test'
+
+annopath = os.path.join(args.voc_root, 'CalfaV1', 'Annotations', '%s.xml')
+imgpath = os.path.join(args.voc_root, 'CalfaV1', 'JPEGImages', '%s.jpg')
+imgsetpath = os.path.join(args.voc_root, 'CalfaV1', 'ImageSets', 'Main', '{:s}.txt')
+devkit_path = VOCroot + 'CalfaV1'
 dataset_mean = (104, 117, 123)
-set_type = 'test'
+set_type = 'val'
 
 class Timer(object):
     """A simple timer."""
@@ -96,10 +103,10 @@ def parse_rec(filename):
     for obj in tree.findall('object'):
         obj_struct = {}
         obj_struct['name'] = obj.find('name').text
-        obj_struct['pose'] = obj.find('pose').text
-        obj_struct['truncated'] = int(obj.find('truncated').text)
+        #obj_struct['pose'] = obj.find('pose').text
+        #obj_struct['truncated'] = int(obj.find('truncated').text)
         obj_struct['difficult'] = int(obj.find('difficult').text)
-        bbox = obj.find('bndbox')
+        bbox = obj.find('bnbox')
         obj_struct['bbox'] = [int(bbox.find('xmin').text) - 1,
                               int(bbox.find('ymin').text) - 1,
                               int(bbox.find('xmax').text) - 1,
@@ -414,7 +421,8 @@ if __name__ == '__main__':
     net.eval()
     print('Finished loading model!')
     # load data
-    dataset = VOCDetection(args.voc_root, [('2007', set_type)], BaseTransform(300, dataset_mean), AnnotationTransform())
+    #dataset = VOCDetection(args.voc_root, [('2007', set_type)], BaseTransform(300, dataset_mean), AnnotationTransform())
+    dataset = VOCDetection(args.voc_root, set_type, BaseTransform(300, dataset_mean), AnnotationTransform())
     if args.cuda:
         net = net.cuda()
         cudnn.benchmark = True
